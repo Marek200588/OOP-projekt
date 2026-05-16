@@ -41,7 +41,7 @@ class RobotArm:
                 jointIndex=joint_idx,
                 controlMode=p.POSITION_CONTROL,
                 targetPosition=target_pos,
-                force=50 # Siła zacisku w Newtonach
+                force=100 # Siła zacisku w Newtonach
             )
 
     def calculate_ik(self, target_xyz):
@@ -66,7 +66,9 @@ class RobotArm:
                 jointIndex=joint_idx,
                 controlMode=p.POSITION_CONTROL,
                 targetPosition=angles[i],
-                force=200
+                force=200,
+                positionGain=0.1,
+                velocityGain=1.0
             )
 
     def get_end_effector_pos(self):

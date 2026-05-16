@@ -1,4 +1,5 @@
 ﻿import time
+import pybullet as p
 from environment import SimulationEnv
 from robot import RobotArm
 from controller import UserInputHandler
@@ -35,83 +36,89 @@ def main():
     # 2. URUCHOMIENIE MÓZGU I PAMIĘCI
     # ==========================================
     start_xyz = [0.2, 0.0, 0.2]
+    
     # Przekazujemy robot_id, żeby wygenerowały się nasze suwaki!
     controller = UserInputHandler(initial_xyz=start_xyz, robot_id=robot.robot_id)
     memory = TeachAndRepeat()
+    czy_suwak_ruszony = False
 
     # Odpalamy konsolę terminala w tle
-    controller.start_terminal_listener()
-
+    controller.start_terminal_listener() 
+    
+    # Zczytujemy pierwszą, początkową pozycję suwaków
+    stare_katy_suwakow = controller.read_sliders()
+    poprzedni_cel_xyz = list(controller.target_xyz)
+    aktywne_sterowanie = "IK"
     print("\n✅ System gotowy. Rozpoczynam pętlę symulacji.")
     print("--- KLAWISZOLOGIA OKNA 3D ---")
-    print("W/S/A/D/Q/E - Ruch dłonią (Kinematyka Odwrotna)")
+    print("U/J/I/K/O/L - Ruch dłonią (Kinematyka Odwrotna)")
     print("Spacja      - Zaciśnij/Puść chwytak")
     print("R           - Zapisz obecny punkt do pamięci (Record)")
     print("P           - Odtwórz nagraną trasę (Play)")
     print("-----------------------------\n")
+
+    poprzedni_cel_xyz = list(controller.target_xyz)
 
     # ==========================================
     # 3. GŁÓWNA PĘTLA SYMULACJI (SERCE PROGRAMU)
     # ==========================================
     try:
         while controller.running:
-            # Krok czasu do przodu
-            env.step_simulation()
+            # ODŚWIEŻANIE OKIENKA Z SUWAKAMI
+            controller.update_gui()
             
-            # Nasłuchiwanie klawiatury w oknie PyBullet
+            env.step_simulation()
             action = controller.process_keyboard_events()
             target_xyz, gripper_closed, mode = controller.get_state()
 
-            # -- REAKCJA NA KLAWISZ "R" --
             if action == "RECORD":
-                # Zapisujemy faktyczną, odczytaną z fizyki pozycję dłoni
                 real_pos = robot.get_end_effector_pos()
-                if real_pos:
-                    memory.record_waypoint(real_pos, gripper_closed)
+                if real_pos: memory.record_waypoint(real_pos, gripper_closed)
 
-            # -- REAKCJA NA KLAWISZ "P" --
             elif mode == "PLAY":
-                print("\n[Main] 🎬 Rozpoczynam odtwarzanie nagranej sekwencji...")
+                print("\n[Main] 🎬 Odtwarzanie...")
                 sekwencja = memory.get_sequence()
-                
-                if not sekwencja:
-                    print("[Main] Sekwencja jest pusta! Wracam do sterowania.")
-                else:
+                if sekwencja:
                     for punkt in sekwencja:
-                        print(f"[Main] Jadę do punktu: {punkt['xyz']}")
-                        
-                        # Wyliczamy IK dla nagranego punktu
                         katy = robot.calculate_ik(punkt['xyz'])
-                        if katy:
-                            robot.apply_arm_angles(katy)
+                        if katy: robot.apply_arm_angles(katy)
                         robot.set_gripper(punkt['gripper'])
-                        
-                        # Zatrzymujemy się w każdym punkcie na sekundę (240 klatek) 
-                        # żebyś widział płynne przeskoki, a nie teleportację
                         for _ in range(240): 
+                            controller.update_gui() # <--- WAŻNE! Nie zamrażajmy GUI w trakcie odtwarzania
                             env.step_simulation()
-                            
-                print("[Main] 🛑 Koniec sekwencji. Wracam do sterowania ręcznego.")
                 controller.mode = "MANUAL"
-                
-                # Zabezpieczenie: Po odtworzeniu trasy podmieniamy nasz cel klawiatury
-                # na ostatni punkt z trasy, żeby ramię nagle nie "szarpnęło" do starej pozycji
-                aktualna_pozycja = robot.get_end_effector_pos()
-                if aktualna_pozycja:
-                    controller.target_xyz = list(aktualna_pozycja)
+                arm_position = robot.get_end_effector_pos()
+                if arm_position: controller.target_xyz = list(arm_position)
 
-            # -- STANDARDOWY RUCH RĘCZNY --
+            # -- RUCH RĘCZNY --
             elif mode == "MANUAL":
-                # Ramię podąża za koordynatami XYZ narzucanymi z terminala lub WSADQE
-                katy = robot.calculate_ik(target_xyz)
-                if katy:
-                    robot.apply_arm_angles(katy)
-                robot.set_gripper(gripper_closed)
+                # 1. Zabezpieczenie przed zablokowaniem suwaków: jeśli użyto klawiatury, zdejmij flagę!
+                if controller.target_xyz != poprzedni_cel_xyz:
+                    controller.reset_slider_flag()
+                
+                # 2. Tryb SUWAKÓW (uruchamiany z wnętrza Tkinter)
+                if controller.suwak_ruszony_przez_usera:
+                    aktualne_odczyty = controller.read_sliders()
+                    robot.apply_arm_angles(aktualne_odczyty)
+                    
+                    arm_position = robot.get_end_effector_pos()
+                    if arm_position: 
+                        controller.target_xyz = list(arm_position)
+                
+                # 3. Tryb KLAWIATURY (IK)
+                else:
+                    wyliczone_katy = robot.calculate_ik(controller.target_xyz)
+                    if wyliczone_katy:
+                        robot.apply_arm_angles(wyliczone_katy)
+                        # Animizujemy suwaki w GUI na żywo!
+                        controller.update_sliders_from_code(wyliczone_katy)
 
+                poprzedni_cel_xyz = list(controller.target_xyz)
+                robot.set_gripper(controller.gripper_closed)
+              
     except KeyboardInterrupt:
-        print("\n[Main] Przerwano kombinacją CTRL+C.")
+        pass
     finally:
-        # Kod w bloku finally wykona się zawsze - posprząta po nas i wyłączy silnik
         env.close()
         print("[Main] Program zakończony.")
 
