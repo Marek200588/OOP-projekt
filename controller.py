@@ -91,6 +91,17 @@ class UserInputHandler:
                 # Błąd TclError wyskakuje, jak zamkniemy okno
                 self.running = False
 
+    def set_mode(self, mode):
+        self.mode = mode
+        if mode == "MANUAL":
+            self.lbl_mode.config(text="TRYB: KLAWIATURA (IK)", fg="green")
+        elif mode == "AUTONOMOUS":
+            self.lbl_mode.config(text="TRYB: AUTO (SORTOWANIE)", fg="blue")
+        elif mode == "PLAY":
+            self.lbl_mode.config(text="TRYB: ODTWARZANIE", fg="orange")
+        else:
+            self.lbl_mode.config(text=f"TRYB: {mode}", fg="black")
+
     # ============================================================
     # STARY KOD TERMINALA I KLAWIATURY (Zaktualizowane klawisze)
     # ============================================================
@@ -129,11 +140,14 @@ class UserInputHandler:
         if ord('r') in keys and keys[ord('r')] & p.KEY_WAS_RELEASED:
             action_request = "RECORD"
         if ord('p') in keys and keys[ord('p')] & p.KEY_WAS_RELEASED:
-            self.mode = "PLAY"
+            self.set_mode("PLAY")
             action_request = "PLAY"
         if ord('m') in keys and keys[ord('m')] & p.KEY_WAS_RELEASED:
-            self.mode = "MANUAL"
+            self.set_mode("MANUAL")
             action_request = "MANUAL"
+        if ord('a') in keys and keys[ord('a')] & p.KEY_WAS_RELEASED:
+            self.set_mode("AUTONOMOUS")
+            action_request = "AUTONOMOUS"
         if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_RELEASED:
             action_request = "SPAWN_CUBE"
         return action_request

@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 class VisionSystem:
-    def __init__(self, camera_pos=[0.3, 0.0, 0.5], target_pos=[0.3, 0.0, 0.0], width=640, height=480):
+    def __init__(self, camera_pos=[0.3, 1, 0.5], target_pos=[0.0, 0.0, 0.0], width=640, height=480):
         """
         Inicjalizacja kamery.
         camera_pos: Gdzie "wisi" obiektyw (X, Y, Z) - domyślnie na wysokości 0.5m
@@ -46,7 +46,7 @@ class VisionSystem:
         )
 
         # rgbImg to płaska tablica z danymi RGBA, zmieniamy ją na macierz (Wysokość x Szerokość x 4)
-        img_array = np.reshape(rgbImg, (self.height, self.width, 4))
+        img_array = np.array(rgbImg, dtype=np.uint8).reshape((self.height, self.width, 4))
         
         # Odrzucamy 4. kanał (Alpha/Przezroczystość), zostaje RGB
         img_rgb = img_array[:, :, :3]
@@ -57,57 +57,56 @@ class VisionSystem:
         return img_bgr
 
     def detect_blocks(self, image):
-        """Wykrywa kolorowe klocki i zwraca ich listę."""
-        # Zmiana przestrzeni barw z BGR na HSV (łatwiejsze wykrywanie kolorów)
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        
-        # Definicje kolorów (Zakresy H, S, V)
-        # Możesz musieć je dostosować, jeśli zmienisz oświetlenie lub odcienie w URDF
+        # 1. Definicja zakresów kolorów w przestrzeni HSV
+        # Wartości (Hue, Saturation, Value) dla OpenCV. 
+        # Być może będziesz musiał je lekko dostroić do oświetlenia w PyBullet.
         color_ranges = {
-            "czerwony": [(0, 150, 150), (10, 255, 255)], # Czerwony czasem obejmuje też zakres (170-180), ale w symulacji to wystarczy
-            "zielony": [(40, 100, 100), (80, 255, 255)],
-            "niebieski": [(100, 150, 0), (140, 255, 255)]
+            "czerwony": (np.array([0, 100, 100]), np.array([10, 255, 255])),
+            "zielony": (np.array([40, 100, 100]), np.array([80, 255, 255])),
+            "niebieski": (np.array([100, 100, 100]), np.array([140, 255, 255]))
         }
         
-        detected_blocks = []
+        # Konwersja obrazka do formatu HSV (łatwiej w nim wykrywać kolory niż w BGR)
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        
+        # TWORZYSZ PUSTĄ LISTĘ NA SAMYM POCZĄTKU
+        detected_blocks = [] 
 
         for color_name, (lower, upper) in color_ranges.items():
-            # Zamiana na tablice numpy
-            lower_bound = np.array(lower, dtype=np.uint8)
-            upper_bound = np.array(upper, dtype=np.uint8)
+            # Tworzenie maski (czarno-biały obraz, gdzie biały to nasz szukany kolor)
+            mask = cv2.inRange(hsv_image, lower, upper)
             
-            # Tworzenie maski: piksele w zakresie kolorów stają się białe (255), reszta czarna (0)
-            mask = cv2.inRange(hsv, lower_bound, upper_bound)
-            
-            # Usuwanie małych "szumów" (np. pojedynczych błędnych pikseli)
-            mask = cv2.erode(mask, None, iterations=2)
-            mask = cv2.dilate(mask, None, iterations=2)
-            
-            # Szukanie konturów białych plam
+            # Wyszukiwanie konturów na masce
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
             for cnt in contours:
-                # Ignorujemy plamy mniejsze niż 200 pikseli (to na pewno nie klocek)
+                # Odrzucamy bardzo małe plamki (szum)
                 if cv2.contourArea(cnt) > 200:
-                    # Obliczanie środka ciężkości kształtu
+                    
+                    # Obliczanie środka ciężkości konturu (momenty geometryczne)
                     M = cv2.moments(cnt)
-                    if M["m00"] != 0:
-                        cx = int(M["m10"] / M["m00"]) # Współrzędna X w pikselach (0 - 640)
-                        cy = int(M["m01"] / M["m00"]) # Współrzędna Y w pikselach (0 - 480)
+                    
+                    # Zabezpieczenie przed dzieleniem przez zero
+                    if M["m00"] == 0:
+                        continue
                         
-                        # Przeliczamy piksele na metry świata PyBullet
-                        world_x, world_y = self.pixels_to_meters(cx, cy)
+                    # Wyliczenie współrzędnych cx, cy na obrazie w pikselach
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    
+                    # Przeliczanie pikseli na świat
+                    world_x, world_y = self.pixels_to_meters(cx, cy)
+                    
+                    # PAKUJESZ WSPÓŁRZĘDNE DO SŁOWNIKA I DODAJESZ DO LISTY
+                    detected_blocks.append({
+                        "kolor": color_name,
+                        "piksele": (cx, cy),
+                        "wspolrzedne_xyz": [world_x, world_y, 0.05], # Wysokość 0.05 (np. pół wysokości klocka)
+                        "kontur": cnt
+                    })
                         
-                        # Zapisujemy dane klocka do listy
-                        detected_blocks.append({
-                            "kolor": color_name,
-                            "piksele": (cx, cy),
-                            "wspolrzedne_xyz": [world_x, world_y, 0.05], # Zakładamy, że Z=0.05 (wysokość klocka)
-                            "kontur": cnt
-                        })
-                        
+        # NAJWAŻNIEJSZE: ZWRACASZ LISTĘ NA ZEWNĄTRZ
         return detected_blocks
-
     def pixels_to_meters(self, px, py):
         """
         Tłumaczy współrzędne z ekranu (piksele) na współrzędne świata 3D (metry).
@@ -141,9 +140,9 @@ class VisionSystem:
         
         # Mapowanie koloru ramki w BGR do nazwy
         bgr_colors = {
-            "czerwony": (0, 0, 255),
-            "zielony": (0, 255, 0),
-            "niebieski": (255, 0, 0)
+            "red": (0, 0, 255),
+            "green": (0, 255, 0),
+            "blue": (255, 0, 0)
         }
         
         for block in detected_blocks:

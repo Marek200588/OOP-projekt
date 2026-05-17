@@ -44,7 +44,7 @@ class SimulationEnv:
     def step_simulation(self):
         p.stepSimulation()
         if self.use_gui:
-            time.sleep(1./240.)
+            time.sleep(1./30.)
     def close(self):
         p.disconnect()
         print("symulacja zakończona")
