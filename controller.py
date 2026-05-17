@@ -134,7 +134,11 @@ class UserInputHandler:
         if ord('m') in keys and keys[ord('m')] & p.KEY_WAS_RELEASED:
             self.mode = "MANUAL"
             action_request = "MANUAL"
+        if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_RELEASED:
+            action_request = "SPAWN_CUBE"
         return action_request
-
+        #spawn kostki
+        
+         
     def get_state(self):
         return self.target_xyz, self.gripper_closed, self.mode

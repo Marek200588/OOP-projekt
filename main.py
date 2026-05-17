@@ -1,9 +1,11 @@
 ﻿import time
+import cv2
 import pybullet as p
 from environment import SimulationEnv
 from robot import RobotArm
 from controller import UserInputHandler
 from teach_pendant import TeachAndRepeat
+from vision import VisionSystem
 
 def main():
     print("🚀 Inicjalizacja systemu...")
@@ -14,7 +16,6 @@ def main():
     env = SimulationEnv(use_gui=True)
     env.load_environment()
     
-    # WAŻNE: Podmień "urdf/moj_robot.urdf" na DOKŁADNĄ nazwę pliku z Twoim ramieniem!
     sciezka_do_robota = "urdf/ramie.urdf" 
     
     try:
@@ -29,7 +30,7 @@ def main():
         return
 
     # Generujemy kostkę do podnoszenia (upewnij się, że ścieżka do cube.urdf jest poprawna)
-    env.spawn_cube(position=[0.3, 0.0, 0.05], urdf_path="urdf/cube.urdf")
+    env.spawn_random_cube(urdf_path="urdf/cube.urdf")
 
 
     # ==========================================
@@ -74,7 +75,8 @@ def main():
             if action == "RECORD":
                 real_pos = robot.get_end_effector_pos()
                 if real_pos: memory.record_waypoint(real_pos, gripper_closed)
-
+            if action == "SPAWN_CUBE":
+                env.spawn_random_cube(urdf_path="urdf/cube.urdf")
             elif mode == "PLAY":
                 print("\n[Main] 🎬 Odtwarzanie...")
                 sekwencja = memory.get_sequence()
