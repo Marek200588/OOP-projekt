@@ -66,8 +66,8 @@ class RobotArm:
                 jointIndex=joint_idx,
                 controlMode=p.POSITION_CONTROL,
                 targetPosition=angles[i],
-                force=200,
-                positionGain=0.1,
+                force=50,
+                positionGain=0.02,
                 velocityGain=1.0
             )
 

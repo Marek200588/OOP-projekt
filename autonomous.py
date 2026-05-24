@@ -75,160 +75,195 @@ class AutoSorter:
         return None
 
     def update(self, detected_cubes):
-        # === STAN 1: OBSERWACJA ===
-        if self.machine_state == "Observation":
-            self.controller.target_xyz = [0.2, 0.0, 0.3]
-            self.controller.gripper_closed = False
-            
-            # Jeśli kamera cokolwiek widzi, nadpisujemy bezpieczną pamięć tym klockiem!
-            if detected_cubes and len(detected_cubes) > 0:
-                self.cube_in_memory = detected_cubes[0]
-                print(f"[AutoSorter] Znalazłem: {self.cube_in_memory['kolor']}. Zaczynamy!")
-                self.machine_state = "Approach"
-                self.idle_time = 0
-
-        # === STAN 2: DOJAZD NAD KLOCEK ===
-        elif self.machine_state == "Approach":
-            if self.idle_time == 0:
-                self.start_xyz = list(self.controller.target_xyz)
-            
-            target_x, target_y, _ = self.cube_in_memory["wspolrzedne_xyz"]
-            end_xyz = [target_x, target_y, 0.25]
-            max_time = 10 
-            
-            self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
-            
-            self.idle_time += 1
-            if self.idle_time >= max_time:
-                self.machine_state = "Descent"
-                self.idle_time = 0
-
-        # === STAN 3: ZJAZD W DÓŁ ===
-        elif self.machine_state == "Descent":
-            if self.idle_time == 0:
-                self.start_xyz = list(self.controller.target_xyz)
+            # === STAN 1: OBSERWACJA ===
+            if self.machine_state == "Observation":
+                self.controller.target_xyz = [0.2, 0.0, 0.3]
+                self.controller.gripper_closed = False
                 
-            target_x, target_y, _ = self.cube_in_memory["wspolrzedne_xyz"]
-            end_xyz = [target_x, target_y, 0.08] 
-            max_time = 5 
-            
-            self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
-            
-            self.idle_time += 1
-            if self.idle_time >= max_time:
-                self.machine_state = "Grab"
-                self.idle_time = 0
+                # Jeśli cokolwiek widzimy, zamrażamy to i przechodzimy dalej
+                if detected_cubes and len(detected_cubes) > 0:
+                    # Pobieramy klocek i kopiujemy jego dane na "sztywno", odcinając się od aktualizacji z kamery
+                    znaleziony_klocek = detected_cubes[0]
+                    self.cube_in_memory = {
+                        "kolor": znaleziony_klocek["kolor"],
+                        # Twarda kopia listy współrzędnych, nikt nam już tego nie nadpisze:
+                        "wspolrzedne_xyz": list(znaleziony_klocek["wspolrzedne_xyz"]) 
+                    }
+                    
+                    print(f"[AutoSorter] Zlokalizowano i ZAMROŻONO cel: {self.cube_in_memory['kolor']}. Start!")
+                    self.machine_state = "Approach"
+                    self.idle_time = 0
 
-        # === STAN 4: CHWYTANIE I SPAWANIE ===
-        elif self.machine_state == "Grab":
-            self.controller.gripper_closed = True
-            
-            if self.idle_time == 4:
-                target_id = self.cube_id_radar(self.controller.target_xyz)
-                if target_id is not None:
-                    self.virtual_joint_id = p.createConstraint(
-                        parentBodyUniqueId=self.robot_id,
-                        parentLinkIndex=self.ee_index,
-                        childBodyUniqueId=target_id,
-                        childLinkIndex=-1,
-                        jointType=p.JOINT_FIXED,
-                        jointAxis=[0, 0, 0],
-                        parentFramePosition=[0, 0, 0],
-                        childFramePosition=[0, 0, 0]
-                    )
-
-            self.idle_time += 1
-            if self.idle_time > 8:
-                self.machine_state = "Ascent"
-                self.idle_time = 0
-
-        # === STAN 5: PODNOSZENIE ===
-        elif self.machine_state == "Ascent":
-            if self.idle_time == 0:
-                self.start_xyz = list(self.controller.target_xyz)
+            # === STAN 2: DOJAZD NAD KLOCEK ===
+            elif self.machine_state == "Approach":
+                self.controller.gripper_closed = False # Upewniamy się, że chwytak jest otwarty
                 
-            target_x, target_y, _ = self.cube_in_memory["wspolrzedne_xyz"]
-            end_xyz = [target_x, target_y, 0.35]
-            max_time = 5
-            
-            self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
-            
-            self.idle_time += 1
-            if self.idle_time >= max_time:
-                self.machine_state = "Move_To_Stack"
-                self.idle_time = 0
-
-        # === STAN 6: LOT NAD STOS ===
-        elif self.machine_state == "Move_To_Stack":
-            if self.idle_time == 0:
-                self.start_xyz = list(self.controller.target_xyz)
+                if self.idle_time == 0:
+                    self.start_xyz = list(self.controller.target_xyz)
                 
-            color = self.cube_in_memory["kolor"]
-            stack_x, stack_y = self.stack_xyz.get(color, (-0.4, 0.0)) 
-            end_xyz = [stack_x, stack_y, 0.35]
-            max_time = 12
-            
-            self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
-            
-            self.idle_time += 1
-            if self.idle_time >= max_time:
-                self.machine_state = "Lower_To_Stack"
-                self.idle_time = 0
-
-        # === STAN 7: OPUSZCZANIE NA STOS ===
-        elif self.machine_state == "Lower_To_Stack":
-            if self.idle_time == 0:
-                self.start_xyz = list(self.controller.target_xyz)
+                target_x, target_y, _ = self.cube_in_memory["wspolrzedne_xyz"]
+                end_xyz = [target_x, target_y, 0.25]
+                max_time = 150 # Ok. 0.6 sekundy płynnego ruchu
                 
-            color = self.cube_in_memory["kolor"]
-            stack_x, stack_y = self.stack_xyz.get(color, (-0.4, 0.0))
-            cubes_on_stack = self.stack_tracker.get(color, 0)
-            
-            target_z = 0.05 + (cubes_on_stack * 0.1) + 0.03
-            end_xyz = [stack_x, stack_y, target_z]
-            max_time = 8
-            
-            self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
-            
-            self.idle_time += 1
-            if self.idle_time >= max_time:
-                self.machine_state = "Release"
-                self.idle_time = 0
-
-        # === STAN 8: PUSZCZANIE ===
-        elif self.machine_state == "Release":
-            self.controller.gripper_closed = False
-            
-            if self.idle_time == 0:
-                if self.virtual_joint_id is not None:
-                    p.removeConstraint(self.virtual_joint_id)
-                    self.virtual_joint_id = None
+                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
                 
+                self.idle_time += 1
+                if self.idle_time >= max_time:
+                    self.machine_state = "Descent"
+                    self.idle_time = 0
+
+            # === STAN 3: ZJAZD W DÓŁ ===
+            elif self.machine_state == "Descent":
+                self.controller.gripper_closed = False
+                
+                if self.idle_time == 0:
+                    self.start_xyz = list(self.controller.target_xyz)
+                    
+                target_x, target_y, _ = self.cube_in_memory["wspolrzedne_xyz"]
+                end_xyz = [target_x, target_y, 0.08] # Wysokość chwytania
+                max_time = 80 # Szybszy zjazd w dół (ok. 0.3s)
+                
+                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
+                
+                self.idle_time += 1
+                if self.idle_time >= max_time:
+                    self.machine_state = "Grab"
+                    self.idle_time = 0
+
+            # === STAN 4: CHWYTANIE I SPAWANIE ===
+            elif self.machine_state == "Grab":
+                self.controller.gripper_closed = True # Zaciskamy!
+                
+                # Dajemy fizyce chwilę (np. 30 klatek) na faktyczne zaciśnięcie palców przed stworzeniem spawu
+                if self.idle_time == 30:
+                    target_id = self.cube_id_radar(self.controller.target_xyz)
+                    if target_id is not None:
+                        self.virtual_joint_id = p.createConstraint(
+                            parentBodyUniqueId=self.robot_id,
+                            parentLinkIndex=self.ee_index,
+                            childBodyUniqueId=target_id,
+                            childLinkIndex=-1,
+                            jointType=p.JOINT_FIXED,
+                            jointAxis=[0, 0, 0],
+                            parentFramePosition=[0, 0, 0],
+                            childFramePosition=[0, 0, 0]
+                        )
+
+                self.idle_time += 1
+                if self.idle_time > 60: # Czekamy łącznie ćwierć sekundy na pewny chwyt
+                    self.machine_state = "Ascent"
+                    self.idle_time = 0
+
+            # === STAN 5: PODNOSZENIE ===
+            elif self.machine_state == "Ascent":
+                self.controller.gripper_closed = True # PODTRZYMANIE CHWYTU!
+                
+                if self.idle_time == 0:
+                    self.start_xyz = list(self.controller.target_xyz)
+                    
+                target_x, target_y, _ = self.cube_in_memory["wspolrzedne_xyz"]
+                end_xyz = [target_x, target_y, 0.35]
+                max_time = 80 
+                
+                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
+                
+                self.idle_time += 1
+                if self.idle_time >= max_time:
+                    self.machine_state = "Move_To_Stack"
+                    self.idle_time = 0
+
+            # === STAN 6: LOT NAD STOS ===
+            elif self.machine_state == "Move_To_Stack":
+                self.controller.gripper_closed = True # PODTRZYMANIE CHWYTU!
+                
+                if self.idle_time == 0:
+                    self.start_xyz = list(self.controller.target_xyz)
+                    
                 color = self.cube_in_memory["kolor"]
-                if color in self.stack_tracker:
-                    self.stack_tracker[color] += 1
-                print(f"[AutoSorter] Sukces! Stos {color} liczy {self.stack_tracker.get(color)} klocków.")
-
-            self.idle_time += 1
-            if self.idle_time > 5:
-                self.machine_state = "Return"
-                self.idle_time = 0
-
-        # === STAN 9: POWRÓT ===
-        elif self.machine_state == "Return":
-            if self.idle_time == 0:
-                self.start_xyz = list(self.controller.target_xyz)
+                stack_x, stack_y = self.stack_xyz.get(color, (-0.4, 0.0)) 
+                end_xyz = [stack_x, stack_y, 0.35]
+                max_time = 200 # Dłuższy lot (ok. 0.8 sekundy)
                 
-            color = self.cube_in_memory["kolor"]
-            stack_x, stack_y = self.stack_xyz.get(color, (-0.4, 0.0))
-            end_xyz = [stack_x, stack_y, 0.35] 
-            max_time = 6
-            
-            self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
-            
-            self.idle_time += 1
-            if self.idle_time >= max_time:
-                self.machine_state = "Observation"
-                self.idle_time = 0
-                # NIE resetujemy pamięci. Zostaje tam klocek, który właśnie podnieśliśmy,
-                # aż do momentu gdy stan 1. nadpisze go nowym.
+                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
+                
+                self.idle_time += 1
+                if self.idle_time >= max_time:
+                    self.machine_state = "Lower_To_Stack"
+                    self.idle_time = 0
+
+            # === STAN 7: OPUSZCZANIE NA STOS ===
+            elif self.machine_state == "Lower_To_Stack":
+                self.controller.gripper_closed = True # PODTRZYMANIE CHWYTU!
+                
+                if self.idle_time == 0:
+                    self.start_xyz = list(self.controller.target_xyz)
+                    
+                color = self.cube_in_memory["kolor"]
+                stack_x, stack_y = self.stack_xyz.get(color, (-0.4, 0.0))
+                cubes_on_stack = self.stack_tracker.get(color, 0)
+                
+                target_z = 0.05 + (cubes_on_stack * 0.1) + 0.03
+                end_xyz = [stack_x, stack_y, target_z]
+                max_time = 100
+                
+                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
+                
+                self.idle_time += 1
+                if self.idle_time >= max_time:
+                    self.machine_state = "Release"
+                    self.idle_time = 0
+
+            # === STAN 8: PUSZCZANIE ===
+            elif self.machine_state == "Release":
+                self.controller.gripper_closed = False # Puszczamy cel
+                
+                if self.idle_time == 0:
+                    if self.virtual_joint_id is not None:
+                        p.removeConstraint(self.virtual_joint_id)
+                        self.virtual_joint_id = None
+                    
+                    color = self.cube_in_memory["kolor"]
+                    if color in self.stack_tracker:
+                        self.stack_tracker[color] += 1
+                    print(f"[AutoSorter] Sukces! Stos {color} liczy {self.stack_tracker.get(color)} klocków.")
+
+                self.idle_time += 1
+                if self.idle_time > 60: # Dajemy czas na rozwarcie palców
+                    self.machine_state = "Lift_From_Stack" 
+                    self.idle_time = 0
+
+            # === STAN 9: BEZPIECZNE PODNOSZENIE ZE STOSU ===
+            elif self.machine_state == "Lift_From_Stack":
+                self.controller.gripper_closed = False
+                
+                if self.idle_time == 0:
+                    self.start_xyz = list(self.controller.target_xyz)
+                    
+                color = self.cube_in_memory["kolor"]
+                stack_x, stack_y = self.stack_xyz.get(color, (-0.4, 0.0))
+                end_xyz = [stack_x, stack_y, 0.35]
+                max_time = 80
+                
+                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
+                
+                self.idle_time += 1
+                if self.idle_time >= max_time:
+                    self.machine_state = "Return_To_Home"
+                    self.idle_time = 0
+
+            # === STAN 10: POWRÓT DO BAZY ===
+            elif self.machine_state == "Return_To_Home":
+                self.controller.gripper_closed = False
+                
+                if self.idle_time == 0:
+                    self.start_xyz = list(self.controller.target_xyz)
+                    
+                end_xyz = [0.2, 0.0, 0.3] 
+                max_time = 150 
+                
+                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
+                
+                self.idle_time += 1
+                if self.idle_time >= max_time:
+                    self.machine_state = "Observation"
+                    self.idle_time = 0   
