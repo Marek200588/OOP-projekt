@@ -67,8 +67,8 @@ class RobotArm:
                 controlMode=p.POSITION_CONTROL,
                 targetPosition=angles[i],
                 force=50,
-                positionGain=0.02,
-                velocityGain=1.0
+                positionGain=0.05,
+                velocityGain=0.4
             )
 
     def get_end_effector_pos(self):

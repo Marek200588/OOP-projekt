@@ -8,7 +8,7 @@ class UserInputHandler:
         self.gripper_closed = False
         self.mode = "MANUAL"
         self.running = True
-        self.step_size = 0.002
+        self.step_size = 0.01
         self.joint_indices = []
         
         # --- 1. TWORZENIE WŁASNEGO OKNA GUI ---
