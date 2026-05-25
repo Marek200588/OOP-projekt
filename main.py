@@ -60,30 +60,37 @@ def main():
     # 3. GŁÓWNA PĘTLA SYMULACJI
     # ==========================================
     try:
-        # Wymuszamy stworzenie okna OpenCV już na samym starcie programu
         cv2.namedWindow("Oko Robota (Wizja)")
-        ostatni_tryb = "MANUAL" # Zmienna do wykrywania momentu zmiany trybu
+        ostatni_tryb = "MANUAL" 
+        
+        # NOWE: Definiujemy puste zmienne, żeby uniknąć błędów w pierwszych klatkach
+        blocks = []
+        step_counter = 0 
+        
         while controller.running:
+            step_counter += 1 # Licznik kroków
+            
             # Odświeżanie GUI i Fizyki
             controller.update_gui()
             env.step_simulation()
-            # (main.py - gdzieś na początku pętli while)
+            
             action = controller.process_keyboard_events()
             target_xyz, gripper_closed, mode = controller.get_state()
             
-            # ---> DODAJ TO:
             # ==========================================
-            # PODGLĄD KAMERY NA ŻYWO (ZAWSZE WŁĄCZONY)
+            # PODGLĄD KAMERY NA ŻYWO (~30 FPS zamiast 240)
             # ==========================================
-            img = vision.get_image()
-            blocks = vision.detect_blocks(img)
-            # ---> DODAJ TĘ LINIJKĘ DO DIAGNOSTYKI:
-            
-            podglad = vision.draw_detections(img, blocks)
-            cv2.imshow("Oko Robota (Wizja)", podglad)
-            cv2.waitKey(1) # To powstrzymuje kamerę przed zawieszeniem się!
-            
+            # Uruchamiamy ciężkie obliczenia z kamery tylko co 8 cykl
+            if step_counter % 8 == 0:
+                img = vision.get_image()
+                blocks = vision.detect_blocks(img)
+                podglad = vision.draw_detections(img, blocks)
+                cv2.imshow("Oko Robota (Wizja)", podglad)
+                cv2.waitKey(1) 
 
+            # --- Akcje jednorazowe ---
+            # (reszta Twojego kodu bez zmian, zmienna `blocks` 
+            # bez problemu trafi do sorter.update(blocks))
             # --- Akcje jednorazowe ---
             if action == "RECORD":
                 real_pos = robot.get_end_effector_pos()

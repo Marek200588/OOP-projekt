@@ -10,53 +10,52 @@ class AutoSorter:
         self.idle_time = 0
         self.virtual_joint_id = None
         
-        # BEZPIECZNA PAMIĘĆ: Zamiast None, wstawiamy bezpieczne dane domyślne.
-        # Dzięki temu kod wyciągający np. ["wspolrzedne_xyz"] nigdy nie wyrzuci błędu!
+        # BEZPIECZNA PAMIĘĆ: Polskie domyślne nazwy
         self.cube_in_memory = {
-            "kolor": "red", 
+            "kolor": "czerwony", 
             "wspolrzedne_xyz": [0.2, 0.0, 0.05],
             "piksele": (0, 0)
         }
         
-        # Zmienna do zapamiętywania pozycji startowej dla płynnych łuków
-        self.start_xyz = [0.2, 0.0, 0.3]
-        
-        # Miejsca odkładania klocków
+        # Miejsca odkładania klocków z dopasowanymi nazwami
         self.stack_xyz = {
-            "red": (-0.4, -0.3),
-            "green": (-0.4, 0.0),
-            "blue": (-0.4, 0.3)
+            "czerwony": (-0.4, -0.3),
+            "zielony": (-0.4, 0.0),
+            "niebieski": (-0.4, 0.3)
         }
         
+        # Liczniki na polskich nazwach
         self.stack_tracker = {
-            "red": 0,
-            "green": 0,
-            "blue": 0
+            "czerwony": 0,
+            "zielony": 0,
+            "niebieski": 0
         }
+    def polar_interpolate(self, p1, p2, t, arc_height=0.0):
+            """Interpolacja cylindryczna (po łuku) z wygładzaniem i podrzutem w osi Z."""
+            t_eased = (1 - math.cos(t * math.pi)) / 2.0
 
-    def polar_interpolate(self, p1, p2, t):
-        """Interpolacja cylindryczna (po łuku) z wygładzaniem (easing)."""
-        t = (1 - math.cos(t * math.pi)) / 2.0
+            r1 = math.hypot(p1[0], p1[1])
+            a1 = math.atan2(p1[1], p1[0])
+            z1 = p1[2]
 
-        r1 = math.hypot(p1[0], p1[1])
-        a1 = math.atan2(p1[1], p1[0])
-        z1 = p1[2]
+            r2 = math.hypot(p2[0], p2[1])
+            a2 = math.atan2(p2[1], p2[0])
+            z2 = p2[2]
 
-        r2 = math.hypot(p2[0], p2[1])
-        a2 = math.atan2(p2[1], p2[0])
-        z2 = p2[2]
+            diff = a2 - a1
+            diff = (diff + math.pi) % (2 * math.pi) - math.pi
 
-        diff = a2 - a1
-        diff = (diff + math.pi) % (2 * math.pi) - math.pi
+            rt = r1 + (r2 - r1) * t_eased
+            at = a1 + diff * t_eased
+            
+            # TWORZENIE ŁUKU: W połowie drogi (t_eased = 0.5) sinus(pi*0.5) daje 1, więc Z rośnie o arc_height. 
+            # Na początku (0) i końcu (1) sinus daje 0.
+            z_arc = math.sin(t_eased * math.pi) * arc_height
+            zt = z1 + (z2 - z1) * t_eased + z_arc
 
-        rt = r1 + (r2 - r1) * t
-        at = a1 + diff * t
-        zt = z1 + (z2 - z1) * t
-
-        xt = rt * math.cos(at)
-        yt = rt * math.sin(at)
-        return [xt, yt, zt]
-
+            xt = rt * math.cos(at)
+            yt = rt * math.sin(at)
+            return [xt, yt, zt]
     def cube_id_radar(self, pos_xyz):
         """Skanuje fizykę PyBullet w poszukiwaniu ID klocka do spawania."""
         x, y, z = pos_xyz
@@ -184,7 +183,7 @@ class AutoSorter:
                 end_xyz = [stack_x, stack_y, 0.35]
                 max_time = 200 # Dłuższy lot (ok. 0.8 sekundy)
                 
-                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
+                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time, arc_height=0.15)
                 
                 self.idle_time += 1
                 if self.idle_time >= max_time:
@@ -261,7 +260,7 @@ class AutoSorter:
                 end_xyz = [0.2, 0.0, 0.3] 
                 max_time = 150 
                 
-                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time)
+                self.controller.target_xyz = self.polar_interpolate(self.start_xyz, end_xyz, self.idle_time / max_time, arc_height=0.15)
                 
                 self.idle_time += 1
                 if self.idle_time >= max_time:

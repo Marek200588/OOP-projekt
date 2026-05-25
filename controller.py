@@ -86,11 +86,10 @@ class UserInputHandler:
         """Musi być odpalane w pętli symulacji, odświeża okno."""
         if self.running:
             try:
+                self.root.update_idletasks() # Lepsze do płynnych suwaków
                 self.root.update()
             except tk.TclError:
-                # Błąd TclError wyskakuje, jak zamkniemy okno
                 self.running = False
-
     def set_mode(self, mode):
         self.mode = mode
         if mode == "MANUAL":

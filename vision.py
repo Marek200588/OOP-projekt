@@ -140,9 +140,9 @@ class VisionSystem:
         
         # Mapowanie koloru ramki w BGR do nazwy
         bgr_colors = {
-            "red": (0, 0, 255),
-            "green": (0, 255, 0),
-            "blue": (255, 0, 0)
+            "czerwony": (0, 0, 255),
+            "zielony": (0, 255, 0),
+            "niebieski": (255, 0, 0)
         }
         
         for block in detected_blocks:
