@@ -1,0 +1,127 @@
+\documentclass[12pt, a4paper]{article}
+
+% Pakieety do obsługi języka polskiego i kodowania
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[polish]{babel}
+
+% Marginesy i formatowanie strony
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{enumitem}
+\usepackage{indentfirst}
+
+
+\begin{document}
+
+% --- STRONA 1 ---
+\begin{flushright}
+    Wiktor Sowański 203587 \\
+    Marek Kulma 203260
+\end{flushright}
+
+\vspace{1cm}
+
+\begin{center}
+    \Large\textbf{Sprawozdanie z projektu z programowania obiektowego} \\
+\end{center}
+
+\vspace{0.5cm}
+
+\section{Założenia projektu:}
+Celem projektu jest utworzenie symulacji robota antropomorficznego z trzema stopniami swobody. Założono układ współrzędnych sferycznych.
+Cały projekt zrealizowany został zgodnie z założeniami programowania obiektowego.
+
+\section{Struktura:}
+Projekt podzielony jest na 7 plików w pythonie każdy odpowiadający innej czynności robota:
+\begin{itemize}[noitemsep, topsep=0pt]
+    \item \textbf{main.py} - główny plik obsługujący główną pętlę działania programu
+    \item \textbf{autonomous.py} - odpowiadający za autonomiczne sortowanie klocków przy implementacji systemu wizyjnego robota
+    \item \textbf{controller.py} - odpowiada za wprowadzanie współrzędnych podczas implementacji zaganień odwrotenej kinematyki, oraz za suwaki
+    \item \textbf{enviroment.py} - odpowiada za fizykę środowiska i kostki
+    \item \textbf{robot.py} - obsługuje polecenia ruchu robota
+    \item \textbf{teach\_pendant.py} - moduł pamięci robota, pozwala na implementacje uczenia i pracy
+    \item \textbf{vision.py} - system wizyjny robota potrzebny do autonomicznego sortowania
+\end{itemize}
+
+
+% --- STRONA 2 ---
+\section{Biblioteki:}
+Do implementacji projektu użyto bibliotek
+\begin{itemize}[noitemsep, topsep=0pt]
+    \item \textbf{Pybullet} - do obrotów wokół osi i kątów
+    \item \textbf{OpenCv} - do implementacji systemu wizyjnego robota
+    \item \textbf{Numpy} - do obliczeń matematycznych
+\end{itemize}
+
+\section{Robot:}
+Model robota został zaprogramowany przy wykorzystaniu plików URDF (Unified Robotic Description Format) do stworzenia modelu robota oraz biblioteki Pybullet do opisów kinematyki robota, w celu ominięcia stosowania macierzy obrotu.
+
+Napisano osobne funkcje odpowiadające za:
+\begin{enumerate}[label=\alph*., noitemsep, topsep=0pt]
+    \item Skanowanie stawów robota, i zapisanie ruchomych
+    \item Sterowanie chwytakiem
+    \item Obliczanie kinematyki odwrotnej
+    \item Wysyłanie kątów do stawów ramienia
+    \item Pobieranie pozycji efektora (do systemu wizyjnego)
+\end{enumerate}
+
+
+% --- STRONA 3 ---
+% Miejsce na Zdjęcie 1 (Robot w środowisku Pybullet)
+% \begin{figure}[h!]
+%     \centering
+%     % \graphicx[width=0.8\textwidth]{sciezka_do_pliku}
+%     \caption{Model robota w środowisku symulacyjnym}
+% \end{figure}
+
+\section{System wizyjny i autonomiczne sortowanie:}
+System wizyjny został zaimplementowany przy użyciu bibliotek numpy, opencv oraz pybullet. Działa on na zasadzie zdjęcia zrobionego przez Pybullet, przerobieniu go na format opencv (mi. RGB na BGR). Po określeniu gdzie znajdują się kolorowe kostki system przesyła ich współrzędne do pliku sterującego autonomous.py. Plik sterujacy wykonuje pętlę:
+\begin{enumerate}[label=\alph*., noitemsep, topsep=0pt]
+    \item obserwacja
+    \item dojazd nad klocek
+    \item zjazd w dół
+\end{enumerate}
+
+
+% --- STRONA 4 ---
+\begin{enumerate}[label=\alph*., noitemsep, topsep=0pt]
+    \setcounter{enumi}{3} % Kontynuacja numeracji od litery d
+    \item chwytanie
+    \item podnoszenie
+    \item przeniesienie nad stos
+    \item opuszczenie na stos
+    \item puszczenie
+    \item podnoszenie ze stosu
+    \item powrót do bazy
+\end{enumerate}
+
+Współrzędne sotsów poszczególnych kolorów są określone sztywno w programie. Niżej załączono screenshot z pracy systemu wizyjnego.
+
+% Miejsce na Zdjęcie 2 (Oko Robota Wizja)
+% \begin{figure}[h!]
+%     \centering
+%     % \graphicx[width=0.8\textwidth]{sciezka_do_pliku}
+%     \caption{Oko Robota (Wizja)}
+% \end{figure}
+
+\section{Środowisko:}
+Do implementacji środowiska wykorzystano bibliotekę pybullet oraz pliki urdf. Plik ze środowiskiem, poza grawitacją oraz fizyką kolizji, umożliwa tworzenie kostek do prezentacji możliwości symulacji robota.
+
+
+% --- STRONA 5 ---
+\section{Obsługa:}
+Program daje różne sposoby sterowania symulacją. Są to:
+\begin{itemize}
+    \item Podanie współrzędnych docelowych w terminalu (Kinematyka odwrotna)
+    \item Ustawienie położenia poszczególnych stawów z pomocą suwaków
+    \item Autonomiczne sortowanie kostek, na stosy (Po wciśnięciu klawisza "A" aby rozpoczać sortowanie i "M" aby zakończyć)
+    \item Sterowanie poprzez uczenie, czyli możliwość wciśnięcia klawisza "R" aby rozpocząć nagrywanie sekwencji i po zakończeniu nagrywania wciśnięcie klawisza "P", aby odtworzyć trasę.
+\end{itemize}
+
+Program również daje możliwość tworzenia kostek wciskając klawisz "C" oraz zaciskanie i puszczanie chwytaka - Spacja
+
+\section{Komentarze końcowe:}
+Ramię robota zaprojektowane jest jako obiekty klasy robot. Poprzez rozbicie funkcji programu na osobne pliki spełniono założenia programowania obiektowego.
+
+
+\end{document}
