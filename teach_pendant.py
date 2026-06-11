@@ -5,7 +5,7 @@ class TeachAndRepeat:
     """
 
     def __init__(self):
-        # Lista przechowująca nagrane punkty (tzw. waypoints)
+        # Lista przechowująca nagrane punkty w pliku json śmieszna składnia tam ale to json więc można się było spodziewać
         self.waypoints = []
 
     def record_waypoint(self, target_xyz, gripper_state):

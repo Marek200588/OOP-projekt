@@ -1,13 +1,13 @@
 import pybullet as p
 import cv2
 import numpy as np
-
+##ciężki temat ale działa git
 class VisionSystem:
     def __init__(self, camera_pos=[0.3, 1, 0.5], target_pos=[0.0, 0.0, 0.0], width=640, height=480):
         """
         Inicjalizacja kamery.
         camera_pos: Gdzie "wisi" obiektyw (X, Y, Z) - domyślnie na wysokości 0.5m
-        target_pos: Gdzie patrzy obiektyw (X, Y, Z) - domyślnie na stół (Z=0)
+        target_pos: Gdzie patrzy obiektyw (X, Y, Z) - domyślnie na plain.urdf (Z=0)
         """
         self.width = width
         self.height = height
@@ -30,7 +30,7 @@ class VisionSystem:
         self.proj_matrix = p.computeProjectionMatrixFOV(
             fov=self.fov,
             aspect=float(self.width) / self.height,
-            nearVal=0.1,
+            nearVal=0.1, #od jakiej do jakiej odległości od kamery widzimy cokolwiek
             farVal=2.0
         )
 
@@ -48,7 +48,7 @@ class VisionSystem:
         # rgbImg to płaska tablica z danymi RGBA, zmieniamy ją na macierz (Wysokość x Szerokość x 4)
         img_array = np.array(rgbImg, dtype=np.uint8).reshape((self.height, self.width, 4))
         
-        # Odrzucamy 4. kanał (Alpha/Przezroczystość), zostaje RGB
+        # Odrzucamy alfe bo wszędzie domyślny brak przezroczystości alfa=1, zostaje RGB, 
         img_rgb = img_array[:, :, :3]
         
         # Konwertujemy RGB na BGR (OpenCV natywnie używa BGR)
@@ -59,7 +59,7 @@ class VisionSystem:
     def detect_blocks(self, image):
         # 1. Definicja zakresów kolorów w przestrzeni HSV
         # Wartości (Hue, Saturation, Value) dla OpenCV. 
-        # Być może będziesz musiał je lekko dostroić do oświetlenia w PyBullet.
+        # działało bez szczególnej potrzeby kalibracji ale można się pobawić, okno widoku kamery teź się wyświetla
         color_ranges = {
             "czerwony": (np.array([0, 100, 100]), np.array([10, 255, 255])),
             "zielony": (np.array([40, 100, 100]), np.array([80, 255, 255])),
@@ -69,14 +69,14 @@ class VisionSystem:
         # Konwersja obrazka do formatu HSV (łatwiej w nim wykrywać kolory niż w BGR)
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         
-        # TWORZYSZ PUSTĄ LISTĘ NA SAMYM POCZĄTKU
+        # pusta lista by śmieci z pamięci nam tu nie wjechały
         detected_blocks = [] 
 
         for color_name, (lower, upper) in color_ranges.items():
             # Tworzenie maski (czarno-biały obraz, gdzie biały to nasz szukany kolor)
             mask = cv2.inRange(hsv_image, lower, upper)
             
-            # Wyszukiwanie konturów na masce
+            # Wyszukiwanie konturów na masce, z tego robimy obwódki wyświetlane
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
             for cnt in contours:
@@ -101,11 +101,12 @@ class VisionSystem:
                     detected_blocks.append({
                         "kolor": color_name,
                         "piksele": (cx, cy),
-                        "wspolrzedne_xyz": [world_x, world_y, 0.05], # Wysokość 0.05 (np. pół wysokości klocka)
+                        "wspolrzedne_xyz": [world_x, world_y, 0.05], # Wysokość 0.05- pół wysokości klocka na sztywno, na dwie kamery
+                        #dałoby się zrobić realne 3d ale to nie inżynierka:)
                         "kontur": cnt
                     })
                         
-        # NAJWAŻNIEJSZE: ZWRACASZ LISTĘ NA ZEWNĄTRZ
+        # NAJWAŻNIEJSZE: lista musi dotrzeć do reszrt programu
         return detected_blocks
     def pixels_to_meters(self, px, py):
         """

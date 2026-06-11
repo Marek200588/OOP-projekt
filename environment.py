@@ -20,14 +20,16 @@ class SimulationEnv:
         else:
             p.connect(p.DIRECT)
 
-        p.setGravity(0, 0, -9.81)
+        p.setGravity(0, 0, -9.81)##jak na ziemi ale jak to odwrócimy to można kazać robotowi łapać kostki zanim spadną w górę
         print("grawitacja włączona ")
-
+##urdf- Unified Robot Description Format, standardowy format do opisu robotów w symulacjach, pozwala na definiowanie kształtów, stawów, sensorów i innych właściwości robota w jednym pliku xml.
+#  Dzięki temu można łatwo tworzyć i modyfikować modele robotów bez konieczności programowania ich zachowania od podstaw.
+#robot robiony samodzielnie na podstawie wymiarów z tutoriala i testowany w Rviz2 na bieżąco by osie i transformacje był git
     def load_environment(self):
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.plane_id = p.loadURDF("plane.urdf")
         print("załadowano płaszczyznę")
-    #stara kostka
+    #stara kostka sprzed trybu autonomicznego, może się przyda
     # def spawn_cube(self,position, urdf_path="urdf/cube.urdf"):
     #     cube_id = p.loadURDF(urdf_path, basePosition=position)
     #     print(f"[Środowisko] Załadowano kostkę z pliku {urdf_path} na koordynatach: {position}")
@@ -52,7 +54,7 @@ if __name__ == "__main__":
     moje_srodowisko = SimulationEnv(use_gui=True)
     moje_srodowisko.load_environment()
     
-    # Podajemy ścieżkę do naszego nowego pliku (zakładając, że wrzuciłeś go do folderu urdf/)
+    # urdf ma osobny folder tutaj, można roboty wymieniać dodawać usuwać co tylko się chce.
     ID_kostki = moje_srodowisko.spawn_random_cube(urdf_path="urdf/cube.urdf")
     
     

@@ -6,7 +6,7 @@ from robot import RobotArm
 from controller import UserInputHandler
 from teach_pendant import TeachAndRepeat
 from vision import VisionSystem
-from autonomous import AutoSorter  # Upewnij się, że pierwszy kod wkleiłeś do pliku autonomous.py
+from autonomous import AutoSorter  #importy klas z pliku
 
 def main():
     print("🚀 Inicjalizacja systemu...")
@@ -55,7 +55,7 @@ def main():
     print("M           - Wróć do trybu MANUALNEGO")
     print("R/P         - Nagraj (Record) / Odtwórz (Play) trasę")
     print("-----------------------------\n")
-
+    #i tak warto przeczytać controller.py przed rozpoczęciem korzystania bo trochę tu opcji jest
     # ==========================================
     # 3. GŁÓWNA PĘTLA SYMULACJI
     # ==========================================
@@ -78,9 +78,9 @@ def main():
             target_xyz, gripper_closed, mode = controller.get_state()
             
             # ==========================================
-            # PODGLĄD KAMERY NA ŻYWO (~30 FPS zamiast 240)
+            # PODGLĄD KAMERY NA ŻYWO (~30 FPS zamiast 240 bo to nie dron akrobata i nawet co sekunde by wystarczyło)
             # ==========================================
-            # Uruchamiamy ciężkie obliczenia z kamery tylko co 8 cykl
+            # Uruchamiamy ciężkie obliczenia z kamery tylko co 8 cykl żeby się żaden laptop nie spocił, 8 razy to i tak aż nadto
             if step_counter % 8 == 0:
                 img = vision.get_image()
                 blocks = vision.detect_blocks(img)
@@ -89,15 +89,15 @@ def main():
                 cv2.waitKey(1) 
 
             # --- Akcje jednorazowe ---
-            # (reszta Twojego kodu bez zmian, zmienna `blocks` 
-            # bez problemu trafi do sorter.update(blocks))
+            # (Reszta bez zmian, zmienna `blocks` 
+            # bez problemu trafi do sorter.update(blocks)), tu też był problem z trybem autonomicznym
             # --- Akcje jednorazowe ---
             if action == "RECORD":
                 real_pos = robot.get_end_effector_pos()
                 if real_pos: memory.record_waypoint(real_pos, gripper_closed)
             elif action == "SPAWN_CUBE":
                 env.spawn_random_cube(urdf_path="urdf/cube.urdf")
-                
+                #pięknem pythona jest to że main brzmi jak język angielski
             # --- Odtwarzanie nagranej trasy ---
             elif mode == "PLAY":
                 sekwencja = memory.get_sequence()
@@ -125,7 +125,7 @@ def main():
                     ostatni_tryb = "AUTONOMOUS"
                 
                 # 2. BEZWARUNKOWE wywołanie update'u Sortera
-                # Usunąłem warunki blokujące - teraz MUSI wejść do Sortera!
+                # Usunąłem warunki blokujące - teraz MUSI wejść do Sortera, to a propos zmarnowanych 30 minut na auto vs autonomous
                 sorter.update(blocks)
                 
                 # 3. Zabezpieczenie przed błędem - jeśli Sorter zmienił stan na Observation, 

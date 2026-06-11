@@ -17,7 +17,7 @@ class UserInputHandler:
         self.root.geometry("350x450")
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
-        # Wyświetlacz aktualnego trybu
+        # Wyświetlanie trybu bo łatwo się pogubić
         self.lbl_mode = tk.Label(self.root, text="TRYB: KLAWIATURA (IK)", font=("Arial", 12, "bold"), fg="green")
         self.lbl_mode.pack(pady=10)
         
@@ -36,7 +36,7 @@ class UserInputHandler:
     def _setup_tk_sliders(self, robot_id):
         num_joints = p.getNumJoints(robot_id)
 
-        # Funkcja (closure), która wie, kiedy to my ciągniemy suwak
+        # Funkcja (closure), która wie, kiedy to użytkownik rusza suwakiem a nie autonomia bądź ik albo klawiatura
         def make_callback():
             def on_move(val):
                 # Ignorujemy zdarzenie, jeśli to sam kod przesuwa suwak z IK!
@@ -79,14 +79,15 @@ class UserInputHandler:
 
     def reset_slider_flag(self):
         """Resetuje flagę, aby oddać sterowanie klawiaturze."""
-        self.suwak_ruszony_przez_usera = False
+        self.suwak_ruszony_przez_usera = False ##sorry brak pomysłów na zmienne już duży jest ten kod
+        #następnym razem będą lambda functions i tyle bo to przesada
         self.lbl_mode.config(text="TRYB: KLAWIATURA (IK)", fg="green")
 
     def update_gui(self):
         """Musi być odpalane w pętli symulacji, odświeża okno."""
         if self.running:
             try:
-                self.root.update_idletasks() # Lepsze do płynnych suwaków
+                self.root.update_idletasks() # Lepsze do płynnych suwaków bo wcześniej nie nadążały
                 self.root.update()
             except tk.TclError:
                 self.running = False
@@ -94,7 +95,7 @@ class UserInputHandler:
         self.mode = mode
         if mode == "MANUAL":
             self.lbl_mode.config(text="TRYB: KLAWIATURA (IK)", fg="green")
-        elif mode == "AUTONOMOUS":
+        elif mode == "AUTONOMOUS": ##tu kiedyś było "AUTO" i zmarnowałem 30 minut na debugowanie trybu autonomicznego :)
             self.lbl_mode.config(text="TRYB: AUTO (SORTOWANIE)", fg="blue")
         elif mode == "PLAY":
             self.lbl_mode.config(text="TRYB: ODTWARZANIE", fg="orange")
@@ -102,10 +103,11 @@ class UserInputHandler:
             self.lbl_mode.config(text=f"TRYB: {mode}", fg="black")
 
     # ============================================================
-    # STARY KOD TERMINALA I KLAWIATURY (Zaktualizowane klawisze)
+    # STARY KOD TERMINALA I KLAWIATURY (Zaktualizowane klawisze) bo wcześniej wybrane zostały klawisze mające już funkcje w pybullet
     # ============================================================
     def start_terminal_listener(self):
         thread = threading.Thread(target=self._terminal_loop, daemon=True)
+         ##daemon=True sprawia, że wątek zakończy się automatycznie po zamknięciu głównego programu, więc nie musimy się martwić o jego ręczne zatrzymywanie
         thread.start()
 
     def _terminal_loop(self):
@@ -150,7 +152,7 @@ class UserInputHandler:
         if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_RELEASED:
             action_request = "SPAWN_CUBE"
         return action_request
-        #spawn kostki
+        #spawn kostki to ostatnie, dużo tego ale czytelne i samowyjaśniające
         
          
     def get_state(self):
